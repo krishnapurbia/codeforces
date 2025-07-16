@@ -31,3 +31,78 @@ if (using a discount *now* on edge w is better than whatever you did *before* on
     dis = old_dis + w/2  – (prev/2)
 ******************************************************************************************************************************************************************************************************************
 you are literally subtracting (prev/2) off of a path you thought you’d already accounted for. That means a path you had in the queue with cost = 10 might suddenly drop to 8 once you reach a later node—and vanilla Dijkstra can’t handle that kind of retroactive cost reduction.
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx dijstra only  -  ( only work for additive proprety not for bottlneck problemssssss)
+
+
+
+
+
+
+Dijkstra’s algorithm only works when your “score” for a path is **additive** along edges (i.e. the cost of a path = sum of edge‑costs, and extending a path can only make its total cost go up). In the “Pump” problem, however, you have two very different metrics:
+
+1. **Cost** (additive): you sum edge costs along the path.
+2. **Flow** (bottleneck): you take the *minimum* edge flow along the path.
+
+Because flow is a *min*-operation, it isn’t additive.  You can’t carry forward “current path flow” the way you carry forward “current path cost.”  In particular, if you tried to label each node with a pair
+
+```
+(cost_so_far, -flow_so_far)
+```
+
+and relax edges lexicographically (minimize cost first, then maximize flow), you’d actually be solving the wrong problem:
+
+* You’d end up computing, for each node, the **cheapest** path to it, and among equally‑cheap paths the one with **largest** bottleneck.
+* But what you want is the path that maximizes
+
+  $$
+    \frac{\text{bottleneck flow}}{\text{total cost}},
+  $$
+
+  which is neither “minimize cost” nor “maximize flow” in isolation, nor is it a pure lexicographic objective.
+
+---
+
+### Why lexicographic Dijkstra fails on ratio objectives
+
+Imagine two paths from A → B:
+
+* **Path 1**: flow = 10, cost = 4, ratio = 2.5
+* **Path 2**: flow = 5,  cost = 1, ratio = 5.0
+
+A lexicographic Dijkstra that first minimizes cost would pick Path 2 (cost 1) over Path 1 (cost 4), even though Path 1 has the higher *absolute* flow and Path 2 has the higher *ratio*.  Worse, if you ever reach an intermediate node via a path with slightly lower cost but *much* lower flow, you’ll never reconsider a higher‑flow path that arrives later with slightly more cost—even if that later path would give a *better* ratio in the end.
+
+---
+
+### What *does* work
+
+Because you want to maximize
+
+$$
+  \frac{f_{\min}}{\sum c},
+$$
+
+you need to separate the two metrics.  The standard approaches are:
+
+1. **Enumerate (or binary‑search) on the flow** $F$ you demand, then run a *pure* Dijkstra that only allows edges of capacity ≥ F and minimizes cost.  This tells you, for each candidate F, what the minimum cost C(F) is (or ∞ if no path).  Then you pick the F that maximizes F / C(F).
+
+2. **Parametric search** on the ratio itself—e.g. binary‑search on R = flow/cost, and check if there’s a path whose
+
+   $$
+     \text{flow} - R \times \text{cost} \;\ge\; 0,
+   $$
+
+   which can be reduced to checking for a non‑negative “weight” sum along the path.  (This also uses Dijkstra or Bellman–Ford, but on a single combined weight *per edge* of $\;f_e - R\cdot c_e$, not trying to carry two separate metrics.)
+
+Both of those reduce the problem to a *single* additive metric so that Dijkstra (or Bellman–Ford, in the presence of negative weights during a parametric check) is valid.
+
+---
+
+**In short:**
+
+* **Flow** is *not* additive → you can’t just tack it on as another Dijkstra label.
+* Your objective is a *ratio*, not a lexicographic pairwise ordering.
+
+You must choose one metric to “parametrize” or binary‑search on, and then run a single‑metric shortest‑path algorithm for each guess.
+
