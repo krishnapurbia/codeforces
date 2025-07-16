@@ -1,0 +1,33 @@
+https://usaco.guide/gold/shortest-paths#problem-cses-1195
+
+in this question :::::::::::::::::::::::::::;
+***********************************************************************************************************************************************************************************************************
+while (!st.empty())
+        {
+            auto top = *st.begin();
+            st.erase(top);
+            for( const auto & x : graph[top.second]){
+                       auto ne = x.first; // i
+                       auto w = x.second;  // w
+                       auto dis = top.first.first + w;
+                       auto prev = top.first.second;
+                       if(top.first.first + w >  top.first.first + ((top.first.second+1)/2) + w/2){  < --- this is wroung explantion given belowww
+                            dis =  top.first.first + ((top.first.second+1)/2) + w/2;
+                            prev = w;
+                       }
+                       if( tie(dis,prev) < tie(dp[x.first].first , dp[x.first].second) ) {
+                                st.erase( {dp[x.first] , x.first});
+                                dp[x.first] = {dis,prev};
+                                st.insert({{dis,prev} , x.first});
+                       }
+            }
+        }
+********************************************************************************************************************************************************************************************************************
+The root of the failure is that by trying to “remove” a previously applied discount (via your prev field) and re‑apply it on a later edge, you’ve broken two critical invariants of Dijkstra’s algorithm:
+No retrospective cost changes
+Once you settle a path and push it into your priority set, you assume its total cost is “final” and will never go down. But when you do
+*********************************************************************************************************************************************************************************************************************
+if (using a discount *now* on edge w is better than whatever you did *before* on the last edge)
+    dis = old_dis + w/2  – (prev/2)
+******************************************************************************************************************************************************************************************************************
+you are literally subtracting (prev/2) off of a path you thought you’d already accounted for. That means a path you had in the queue with cost = 10 might suddenly drop to 8 once you reach a later node—and vanilla Dijkstra can’t handle that kind of retroactive cost reduction.
